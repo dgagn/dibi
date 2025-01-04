@@ -23,28 +23,32 @@ pub enum TlsMode {
     VerifyFull,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct TlsOptions<'a> {
     pub mode: TlsMode,
     pub pem: Option<&'a [u8]>,
     pub key: Option<&'a [u8]>,
     pub root: Option<&'a [u8]>,
-    pub domain: Option<&'a str>,
+    pub domain: &'a str,
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum TlsError {
-    #[error(transparent)]
-    NativeTls(#[from] native_tls::Error),
-    #[error("domain is required for tls full verification")]
-    DomainRequired,
+impl<'a> Default for TlsOptions<'a> {
+    fn default() -> Self {
+        Self {
+            mode: TlsMode::default(),
+            domain: "localhost",
+            pem: None,
+            key: None,
+            root: None,
+        }
+    }
 }
 
 impl Stream {
     pub async fn maybe_upgrade_tls<'a>(
         self,
         ssl_opts: &TlsOptions<'a>,
-    ) -> Result<StreamTransporter, TlsError> {
+    ) -> Result<StreamTransporter, native_tls::Error> {
         let parts = Self::into_tls_parts(ssl_opts)?;
 
         if let Some((domain, connector)) = parts {
@@ -58,14 +62,14 @@ impl Stream {
     pub async fn maybe_upgrade_from_parts(
         self,
         (domain, connector): (&str, TlsConnector),
-    ) -> Result<StreamTransporter, TlsError> {
+    ) -> Result<StreamTransporter, native_tls::Error> {
         let stream = connector.connect(domain, self).await?;
         Ok(Either::Right(stream))
     }
 
     pub fn into_tls_parts<'a>(
         ssl_opts: &TlsOptions<'a>,
-    ) -> Result<Option<(&'a str, TlsConnector)>, TlsError> {
+    ) -> Result<Option<(&'a str, TlsConnector)>, native_tls::Error> {
         if ssl_opts.mode == TlsMode::Disabled {
             return Ok(None);
         }
@@ -94,12 +98,6 @@ impl Stream {
         let connector = connector.build()?;
         let connector = TlsConnector::from(connector);
 
-        let domain = if matches!(ssl_opts.mode, TlsMode::VerifyFull) {
-            ssl_opts.domain.ok_or(TlsError::DomainRequired)?
-        } else {
-            ssl_opts.domain.unwrap_or("")
-        };
-
-        Ok(Some((domain, connector)))
+        Ok(Some((ssl_opts.domain, connector)))
     }
 }

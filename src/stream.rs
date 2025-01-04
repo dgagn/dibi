@@ -15,8 +15,9 @@ pub enum Stream {
     Unix(UnixStream),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum StreamType {
+    #[default]
     Tcp,
     #[cfg(unix)]
     Unix,

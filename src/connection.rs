@@ -1,7 +1,6 @@
-use std::collections::VecDeque;
-
 use futures::{SinkExt, StreamExt};
 use tokio::net::{TcpStream, UnixStream};
+use tokio_native_tls::native_tls;
 use tokio_util::{codec::Framed, either::Either};
 
 use crate::{
@@ -33,6 +32,18 @@ pub struct ConnectionOption<'a> {
     pub tls: TlsOptions<'a>,
 }
 
+impl<'a> Default for ConnectionOption<'a> {
+    fn default() -> Self {
+        Self {
+            host: "127.0.0.1:3306",
+            username: "",
+            password: "",
+            stream_type: StreamType::default(),
+            tls: TlsOptions::default(),
+        }
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum ConnectionError {
     #[error(transparent)]
@@ -45,7 +56,7 @@ pub enum ConnectionError {
     TlsCapability,
 
     #[error(transparent)]
-    Tls(#[from] crate::ssl::TlsError),
+    Tls(#[from] native_tls::Error),
 }
 
 impl Connection {
@@ -101,7 +112,9 @@ impl Connection {
         response.set_seq(next_seq);
         next_seq = next_seq.wrapping_add(1);
 
-        // send handshake packet response
+        let values = stream.read_buffer().len();
+
+        println!("values: {:?}", values);
 
         Ok(Self {
             stream,
@@ -130,5 +143,24 @@ impl Connection {
             .ok_or(std::io::Error::from(std::io::ErrorKind::ConnectionAborted))??;
         self.next_seq = packet.seq().wrapping_add(1);
         Ok(packet)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Helper trait to assert Send and Sync
+    trait AssertSendSync: Send + Sync {}
+    impl<T: Send + Sync> AssertSendSync for T {}
+
+    // Function to enforce the assertion at compile time
+    fn assert_send_sync<T: AssertSendSync>() {}
+
+    #[tokio::test]
+    async fn test_send_sync() {
+        let options = ConnectionOption::default();
+        let connection = Connection::connect(&options).await.unwrap();
+        assert_send_sync::<Connection>();
     }
 }

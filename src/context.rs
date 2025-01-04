@@ -5,7 +5,7 @@ use crate::{
     },
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Context {
     server_capabilities: Capability,
     client_capabilities: Capability,

@@ -11,7 +11,6 @@ async fn main() {
     let password = std::env::var("MYSQL_PASSWORD").unwrap();
     let tls_opts = TlsOptions {
         mode: TlsMode::Required,
-        domain: Some("localhost"),
         ..Default::default()
     };
     let options = ConnectionOption {
