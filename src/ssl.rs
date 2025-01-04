@@ -31,28 +31,13 @@ pub struct TlsOptions<'a> {
     pub domain: Option<&'a str>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum TlsError {
-    NativeTls(native_tls::Error),
+    #[error(transparent)]
+    NativeTls(#[from] native_tls::Error),
+    #[error("domain is required for tls full verification")]
     DomainRequired,
 }
-
-impl From<native_tls::Error> for TlsError {
-    fn from(e: native_tls::Error) -> Self {
-        TlsError::NativeTls(e)
-    }
-}
-
-impl std::fmt::Display for TlsError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TlsError::NativeTls(e) => write!(f, "{}", e),
-            TlsError::DomainRequired => write!(f, "domain is required for tls full verification"),
-        }
-    }
-}
-
-impl std::error::Error for TlsError {}
 
 impl Stream {
     pub async fn maybe_upgrade_tls<'a>(
