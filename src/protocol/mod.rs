@@ -1,9 +1,13 @@
 mod capability;
+pub mod client;
+pub mod plugin;
+pub mod server;
 mod state;
 mod status;
 mod version;
 
 pub mod error {
+    pub use super::plugin::PluginParseError;
     pub use super::state::ParseStateChangeError;
     pub use super::version::ParseVersionError;
 }

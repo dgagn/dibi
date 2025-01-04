@@ -5,13 +5,41 @@ use tokio_util::codec::{Decoder, Encoder};
 
 #[derive(Debug)]
 pub struct PacketFrame {
-    pub seq: u8,
-    pub bytes: bytes::Bytes,
+    seq: u8,
+    bytes: bytes::Bytes,
 }
 
-#[derive(Debug)]
+impl PacketFrame {
+    pub fn new(bytes: bytes::Bytes) -> Self {
+        Self { seq: 0, bytes }
+    }
+
+    pub fn set_seq(&mut self, seq: u8) {
+        self.seq = seq;
+    }
+
+    pub fn increase_seq(&mut self, seq: u8) {
+        self.seq = self.seq.wrapping_add(1);
+    }
+
+    pub fn seq(&self) -> u8 {
+        self.seq
+    }
+
+    pub fn take_bytes(self) -> bytes::Bytes {
+        self.bytes
+    }
+}
+
+#[derive(Debug, Default)]
 pub struct PacketCodec {
     _private: (),
+}
+
+impl PacketCodec {
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 
 /// The maximum chunk size is 16MB (3 bytes)

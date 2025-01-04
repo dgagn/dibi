@@ -8,9 +8,10 @@ use crate::stream::Stream;
 
 pub type StreamTransporter = Either<Stream, TlsStream<Stream>>;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum TlsMode {
     /// Do not use SSL/TLS.
+    #[default]
     Disabled,
     /// Use SSL/TLS if the server supports it, but allow a connection without
     Preferred,
@@ -22,7 +23,7 @@ pub enum TlsMode {
     VerifyFull,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TlsOptions<'a> {
     pub mode: TlsMode,
     pub pem: Option<&'a [u8]>,
@@ -44,8 +45,29 @@ impl Stream {
         self,
         ssl_opts: &TlsOptions<'a>,
     ) -> Result<StreamTransporter, TlsError> {
+        let parts = Self::into_tls_parts(ssl_opts)?;
+
+        if let Some((domain, connector)) = parts {
+            let stream = connector.connect(domain, self).await?;
+            Ok(Either::Right(stream))
+        } else {
+            Ok(Either::Left(self))
+        }
+    }
+
+    pub async fn maybe_upgrade_from_parts(
+        self,
+        (domain, connector): (&str, TlsConnector),
+    ) -> Result<StreamTransporter, TlsError> {
+        let stream = connector.connect(domain, self).await?;
+        Ok(Either::Right(stream))
+    }
+
+    pub fn into_tls_parts<'a>(
+        ssl_opts: &TlsOptions<'a>,
+    ) -> Result<Option<(&'a str, TlsConnector)>, TlsError> {
         if ssl_opts.mode == TlsMode::Disabled {
-            return Ok(Either::Left(self));
+            return Ok(None);
         }
 
         let mut connector = native_tls::TlsConnector::builder();
@@ -69,18 +91,15 @@ impl Stream {
             connector.add_root_certificate(ca);
         }
 
+        let connector = connector.build()?;
+        let connector = TlsConnector::from(connector);
+
         let domain = if matches!(ssl_opts.mode, TlsMode::VerifyFull) {
             ssl_opts.domain.ok_or(TlsError::DomainRequired)?
         } else {
             ssl_opts.domain.unwrap_or("")
         };
 
-        let connector = connector.build()?;
-        let connector = TlsConnector::from(connector);
-
-        match connector.connect(domain, self).await {
-            Ok(stream) => Ok(Either::Right(stream)),
-            Err(e) => Err(e.into()),
-        }
+        Ok(Some((domain, connector)))
     }
 }

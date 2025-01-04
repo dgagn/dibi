@@ -49,4 +49,12 @@ impl Capability {
     pub fn extended(&mut self, extended: u32) {
         *self |= Capability::from_bits_truncate((extended as u64) << 32);
     }
+
+    pub fn to_default(&self) -> u32 {
+        self.bits() as u32
+    }
+
+    pub fn to_extended(&self) -> u32 {
+        (self.bits() >> 32) as u32
+    }
 }

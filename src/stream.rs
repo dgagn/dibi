@@ -15,6 +15,13 @@ pub enum Stream {
     Unix(UnixStream),
 }
 
+#[derive(Debug)]
+pub enum StreamType {
+    Tcp,
+    #[cfg(unix)]
+    Unix,
+}
+
 impl AsyncRead for Stream {
     fn poll_read(
         self: Pin<&mut Self>,
