@@ -1,21 +1,26 @@
 use futures::SinkExt;
 use tokio::net::{TcpStream, UnixStream};
+use tokio_native_tls::native_tls::HandshakeError;
 use tokio_stream::StreamExt;
 use tokio_util::{codec::Framed, either::Either};
 
 use crate::{
     codec::PacketCodec,
     context::Context,
-    protocol::{client::SslPacket, server::InitialHanshakePacket, Capability},
+    protocol::{
+        client::{HandshakeResponse, SslPacket},
+        server::InitialHanshakePacket,
+        Capability,
+    },
     ssl::{StreamTransporter, TlsMode, TlsOptions},
     stream::{Stream, StreamType},
     EncodePacket,
 };
 
 #[derive(Debug)]
-pub struct Connection<'a> {
+pub struct Connection {
     stream: Framed<StreamTransporter, PacketCodec>,
-    context: Context<'a>,
+    context: Context,
     next_seq: u8,
 }
 
@@ -43,8 +48,8 @@ pub enum ConnectionError {
     Tls(#[from] crate::ssl::TlsError),
 }
 
-impl<'a> Connection<'a> {
-    pub async fn connect(options: &'a ConnectionOption<'a>) -> Result<Self, ConnectionError> {
+impl Connection {
+    pub async fn connect<'a>(options: &'a ConnectionOption<'a>) -> Result<Self, ConnectionError> {
         let stream = match options.stream_type {
             StreamType::Tcp => Stream::Tcp(TcpStream::connect(options.host).await?),
             StreamType::Unix => Stream::Unix(UnixStream::connect(options.host).await?),
@@ -59,7 +64,7 @@ impl<'a> Connection<'a> {
 
         let mut next_seq = packet.seq().wrapping_add(1);
         let handshake: InitialHanshakePacket = packet.try_into()?;
-        let mut context = Context::new(handshake, options);
+        let mut context = Context::new(handshake);
 
         if matches!(
             options.tls.mode,
@@ -90,6 +95,10 @@ impl<'a> Connection<'a> {
 
             Framed::new(Either::Left(stream), codec)
         };
+
+        let mut response = HandshakeResponse::from(options).encode_packet(&context)?;
+        response.set_seq(next_seq);
+        next_seq = next_seq.wrapping_add(1);
 
         // send handshake packet response
 

@@ -1,13 +1,12 @@
 use crate::{
     codec::MAX_PACKET_SIZE,
-    connection::ConnectionOption,
     protocol::{
         plugin::AuthType, server::InitialHanshakePacket, Capability, ServerStatus, ServerVersion,
     },
 };
 
 #[derive(Debug)]
-pub struct Context<'a> {
+pub struct Context {
     server_capabilities: Capability,
     client_capabilities: Capability,
     is_maria_db: bool,
@@ -18,10 +17,9 @@ pub struct Context<'a> {
     server_version: ServerVersion,
     connection_id: u32,
     status_flags: ServerStatus,
-    options: &'a ConnectionOption<'a>,
 }
 
-impl<'a> Context<'a> {
+impl Context {
     fn default_client_capabilities() -> Capability {
         Capability::IGNORE_SPACE
             | Capability::CLIENT_PROTOCOL_41
@@ -36,8 +34,8 @@ impl<'a> Context<'a> {
     }
 }
 
-impl<'a> Context<'a> {
-    pub fn new(packet: InitialHanshakePacket, options: &'a ConnectionOption<'a>) -> Self {
+impl Context {
+    pub fn new(packet: InitialHanshakePacket) -> Self {
         let server_capabilities = packet.server_capabilities;
         let client_capabilities = Self::default_client_capabilities();
 
@@ -52,17 +50,11 @@ impl<'a> Context<'a> {
             server_version: packet.server_version,
             connection_id: packet.connection_id,
             status_flags: packet.status_flags,
-            options,
         }
     }
 }
 
-impl Context<'_> {
-    #[inline]
-    pub fn options(&self) -> &ConnectionOption {
-        self.options
-    }
-
+impl Context {
     #[inline]
     pub fn server_version(&self) -> &ServerVersion {
         &self.server_version

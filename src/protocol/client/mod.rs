@@ -1,6 +1,6 @@
 use bytes::{BufMut, BytesMut};
 
-use crate::{codec::PacketFrame, context::Context, EncodePacket};
+use crate::{codec::PacketFrame, connection::ConnectionOption, context::Context, EncodePacket};
 
 #[derive(Debug, Default)]
 pub struct SslPacket {
@@ -39,19 +39,31 @@ impl EncodePacket<PacketFrame> for SslPacket {
     }
 }
 
-pub struct HandshakeResponse {}
+pub struct HandshakeResponse<'a> {
+    username: &'a str,
+    password: &'a str,
+}
 
-impl HandshakeResponse {
+impl<'a> From<&'a ConnectionOption<'a>> for HandshakeResponse<'a> {
+    fn from(options: &'a ConnectionOption) -> Self {
+        Self {
+            username: options.username,
+            password: options.password,
+        }
+    }
+}
+
+impl<'a> HandshakeResponse<'a> {
     pub fn size_hint(&self) -> usize {
         // 4 + 4 + 1 + 19 + 4 + username.len() + 1 +
         512
     }
 }
 
-impl EncodePacket<PacketFrame> for HandshakeResponse {
+impl<'a> EncodePacket<PacketFrame> for HandshakeResponse<'a> {
     type Error = std::io::Error;
 
-    fn encode_packet(self, context: &Context) -> Result<PacketFrame, Self::Error> {
+    fn encode_packet(self, _context: &Context) -> Result<PacketFrame, Self::Error> {
         let mut bytes = BytesMut::with_capacity(self.size_hint());
 
         Ok(PacketFrame::new(bytes.freeze()))
