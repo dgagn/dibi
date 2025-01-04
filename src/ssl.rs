@@ -39,7 +39,7 @@ impl std::fmt::Display for TlsError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             TlsError::NativeTls(e) => write!(f, "{}", e),
-            TlsError::DomainRequired => write!(f, "domain is required for full verification"),
+            TlsError::DomainRequired => write!(f, "domain is required for tls full verification"),
         }
     }
 }
