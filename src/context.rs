@@ -59,6 +59,11 @@ impl<'a> Context<'a> {
 
 impl Context<'_> {
     #[inline]
+    pub fn options(&self) -> &ConnectionOption {
+        self.options
+    }
+
+    #[inline]
     pub fn server_version(&self) -> &ServerVersion {
         &self.server_version
     }

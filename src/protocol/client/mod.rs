@@ -39,18 +39,16 @@ impl EncodePacket<PacketFrame> for SslPacket {
     }
 }
 
-pub struct HandshakeResponse<'a> {
-    username: &'a str,
-}
+pub struct HandshakeResponse {}
 
-impl<'a> HandshakeResponse<'a> {
+impl HandshakeResponse {
     pub fn size_hint(&self) -> usize {
         // 4 + 4 + 1 + 19 + 4 + username.len() + 1 +
         512
     }
 }
 
-impl<'a> EncodePacket<PacketFrame> for HandshakeResponse<'a> {
+impl EncodePacket<PacketFrame> for HandshakeResponse {
     type Error = std::io::Error;
 
     fn encode_packet(self, context: &Context) -> Result<PacketFrame, Self::Error> {

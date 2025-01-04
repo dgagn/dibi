@@ -23,6 +23,7 @@ pub struct Connection<'a> {
 pub struct ConnectionOption<'a> {
     pub host: &'a str,
     pub username: &'a str,
+    pub password: &'a str,
     pub stream_type: StreamType,
     pub tls: TlsOptions<'a>,
 }
