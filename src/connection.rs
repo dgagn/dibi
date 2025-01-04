@@ -13,13 +13,16 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct Connection {
+pub struct Connection<'a> {
     stream: Framed<StreamTransporter, PacketCodec>,
+    context: Context<'a>,
     next_seq: u8,
 }
 
+#[derive(Debug)]
 pub struct ConnectionOption<'a> {
     pub host: &'a str,
+    pub username: &'a str,
     pub stream_type: StreamType,
     pub tls: TlsOptions<'a>,
 }
@@ -39,8 +42,8 @@ pub enum ConnectionError {
     Tls(#[from] crate::ssl::TlsError),
 }
 
-impl Connection {
-    pub async fn connect<'a>(options: &ConnectionOption<'a>) -> Result<Self, ConnectionError> {
+impl<'a> Connection<'a> {
+    pub async fn connect(options: &'a ConnectionOption<'a>) -> Result<Self, ConnectionError> {
         let stream = match options.stream_type {
             StreamType::Tcp => Stream::Tcp(TcpStream::connect(options.host).await?),
             StreamType::Unix => Stream::Unix(UnixStream::connect(options.host).await?),
@@ -55,7 +58,7 @@ impl Connection {
 
         let mut next_seq = packet.seq().wrapping_add(1);
         let handshake: InitialHanshakePacket = packet.try_into()?;
-        let mut context = Context::from(handshake);
+        let mut context = Context::new(handshake, options);
 
         if matches!(
             options.tls.mode,
@@ -89,6 +92,10 @@ impl Connection {
 
         // send handshake packet response
 
-        Ok(Self { stream, next_seq })
+        Ok(Self {
+            stream,
+            context,
+            next_seq,
+        })
     }
 }

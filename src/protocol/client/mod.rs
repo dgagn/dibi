@@ -38,3 +38,24 @@ impl EncodePacket<PacketFrame> for SslPacket {
         Ok(PacketFrame::new(bytes.freeze()))
     }
 }
+
+pub struct HandshakeResponse<'a> {
+    username: &'a str,
+}
+
+impl<'a> HandshakeResponse<'a> {
+    pub fn size_hint(&self) -> usize {
+        // 4 + 4 + 1 + 19 + 4 + username.len() + 1 +
+        512
+    }
+}
+
+impl<'a> EncodePacket<PacketFrame> for HandshakeResponse<'a> {
+    type Error = std::io::Error;
+
+    fn encode_packet(self, context: &Context) -> Result<PacketFrame, Self::Error> {
+        let mut bytes = BytesMut::with_capacity(self.size_hint());
+
+        Ok(PacketFrame::new(bytes.freeze()))
+    }
+}

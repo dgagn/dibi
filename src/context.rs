@@ -1,18 +1,27 @@
 use crate::{
     codec::MAX_PACKET_SIZE,
-    protocol::{server::InitialHanshakePacket, Capability},
+    connection::ConnectionOption,
+    protocol::{
+        plugin::AuthType, server::InitialHanshakePacket, Capability, ServerStatus, ServerVersion,
+    },
 };
 
 #[derive(Debug)]
-pub struct Context {
+pub struct Context<'a> {
     server_capabilities: Capability,
     client_capabilities: Capability,
     is_maria_db: bool,
     max_packet_size: u32,
     client_collation: u8,
+    auth_type: Option<AuthType>,
+    seed: Vec<u8>,
+    server_version: ServerVersion,
+    connection_id: u32,
+    status_flags: ServerStatus,
+    options: &'a ConnectionOption<'a>,
 }
 
-impl Context {
+impl<'a> Context<'a> {
     fn default_client_capabilities() -> Capability {
         Capability::IGNORE_SPACE
             | Capability::CLIENT_PROTOCOL_41
@@ -27,22 +36,53 @@ impl Context {
     }
 }
 
-impl From<InitialHanshakePacket> for Context {
-    fn from(packet: InitialHanshakePacket) -> Self {
+impl<'a> Context<'a> {
+    pub fn new(packet: InitialHanshakePacket, options: &'a ConnectionOption<'a>) -> Self {
         let server_capabilities = packet.server_capabilities;
         let client_capabilities = Self::default_client_capabilities();
 
         Context {
             server_capabilities,
             client_capabilities,
-            is_maria_db: packet.is_maria_db,
             max_packet_size: MAX_PACKET_SIZE as u32,
+            is_maria_db: packet.is_maria_db,
             client_collation: packet.default_collation,
+            seed: packet.seed,
+            auth_type: packet.auth_type,
+            server_version: packet.server_version,
+            connection_id: packet.connection_id,
+            status_flags: packet.status_flags,
+            options,
         }
     }
 }
 
-impl Context {
+impl Context<'_> {
+    #[inline]
+    pub fn server_version(&self) -> &ServerVersion {
+        &self.server_version
+    }
+
+    #[inline]
+    pub fn connection_id(&self) -> u32 {
+        self.connection_id
+    }
+
+    #[inline]
+    pub fn status_flags(&self) -> ServerStatus {
+        self.status_flags
+    }
+
+    #[inline]
+    pub fn auth_type(&self) -> Option<AuthType> {
+        self.auth_type
+    }
+
+    #[inline]
+    pub fn seed(&self) -> &[u8] {
+        &self.seed
+    }
+
     #[inline]
     pub fn is_maria_db(&self) -> bool {
         self.is_maria_db
