@@ -15,7 +15,7 @@ use crate::{
 #[derive(Debug)]
 pub struct Connection {
     stream: Framed<StreamTransporter, PacketCodec>,
-    seq: u8,
+    next_seq: u8,
 }
 
 pub struct ConnectionOption<'a> {
@@ -53,7 +53,7 @@ impl Connection {
             .await
             .ok_or(std::io::Error::from(std::io::ErrorKind::ConnectionAborted))??;
 
-        let seq = packet.seq();
+        let mut next_seq = packet.seq().wrapping_add(1);
         let handshake: InitialHanshakePacket = packet.try_into()?;
         let mut context = Context::from(handshake);
 
@@ -70,9 +70,9 @@ impl Connection {
         let stream = if let Some(parts) = parts {
             context.set_client_capability(Capability::SSL);
             let mut packet_frame = SslPacket::new().encode_packet(&context)?;
-            packet_frame.increase_seq(seq);
-
+            packet_frame.set_seq(next_seq);
             framed.send(packet_frame).await?;
+            next_seq = next_seq.wrapping_add(1);
 
             let framed_parts = framed.into_parts();
             let (stream, codec) = (framed_parts.io, framed_parts.codec);
@@ -87,8 +87,8 @@ impl Connection {
             Framed::new(Either::Left(stream), codec)
         };
 
-        // check if more packets that i received
+        // send handshake packet response
 
-        Ok(Self { stream, seq })
+        Ok(Self { stream, next_seq })
     }
 }

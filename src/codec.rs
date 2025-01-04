@@ -18,10 +18,6 @@ impl PacketFrame {
         self.seq = seq;
     }
 
-    pub fn increase_seq(&mut self, seq: u8) {
-        self.seq = self.seq.wrapping_add(1);
-    }
-
     pub fn seq(&self) -> u8 {
         self.seq
     }
