@@ -6,6 +6,8 @@ use tokio_util::either::Either;
 
 use crate::stream::Stream;
 
+pub type StreamTransporter = Either<Stream, TlsStream<Stream>>;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TlsMode {
     /// Do not use SSL/TLS.
@@ -56,7 +58,7 @@ impl Stream {
     pub async fn maybe_upgrade_tls<'a>(
         self,
         ssl_opts: &TlsOptions<'a>,
-    ) -> Result<Either<Self, TlsStream<Self>>, TlsError> {
+    ) -> Result<StreamTransporter, TlsError> {
         if ssl_opts.mode == TlsMode::Disabled {
             return Ok(Either::Left(self));
         }
