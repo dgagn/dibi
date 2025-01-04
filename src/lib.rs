@@ -1,4 +1,4 @@
 mod codec;
-mod protocol;
+pub mod protocol;
 mod ssl;
 mod stream;
