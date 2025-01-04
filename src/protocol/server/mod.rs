@@ -6,6 +6,7 @@ use super::{plugin::AuthType, Capability, ServerStatus, ServerVersion};
 
 #[derive(Debug)]
 pub struct InitialHanshakePacket {
+    pub seq: u8,
     pub server_version: ServerVersion,
     pub connection_id: u32,
     pub server_capabilities: Capability,
@@ -38,6 +39,7 @@ impl TryFrom<PacketFrame> for InitialHanshakePacket {
     type Error = InitialHandshakeError;
 
     fn try_from(packet: PacketFrame) -> Result<Self, Self::Error> {
+        let seq = packet.seq();
         let mut payload = packet.take_bytes();
         let protocol_version = payload.get_u8();
         if protocol_version != 0xa {
@@ -112,6 +114,7 @@ impl TryFrom<PacketFrame> for InitialHanshakePacket {
             auth_type,
             is_maria_db,
             seed,
+            seq,
         })
     }
 }

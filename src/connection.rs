@@ -1,11 +1,10 @@
 use futures::SinkExt;
 use tokio::net::{TcpStream, UnixStream};
-use tokio_native_tls::native_tls::HandshakeError;
 use tokio_stream::StreamExt;
 use tokio_util::{codec::Framed, either::Either};
 
 use crate::{
-    codec::PacketCodec,
+    codec::{PacketCodec, PacketFrame},
     context::Context,
     protocol::{
         client::{HandshakeResponse, SslPacket},
@@ -42,7 +41,7 @@ pub enum ConnectionError {
     InitialHandshake(#[from] crate::protocol::server::InitialHandshakeError),
 
     #[error("The server does not support tls")]
-    NoTls,
+    TlsCapability,
 
     #[error(transparent)]
     Tls(#[from] crate::ssl::TlsError),
@@ -71,13 +70,14 @@ impl Connection {
             TlsMode::Required | TlsMode::VerifyCa | TlsMode::VerifyFull
         ) && !context.has_server_capability(Capability::SSL)
         {
-            return Err(ConnectionError::NoTls);
+            return Err(ConnectionError::TlsCapability);
         }
 
         let parts = Stream::into_tls_parts(&options.tls)?;
 
         let stream = if let Some(parts) = parts {
             context.set_client_capability(Capability::SSL);
+            // add the concept of oneshot packet that checks for the response if i have one
             let mut packet_frame = SslPacket::new().encode_packet(&context)?;
             packet_frame.set_seq(next_seq);
             framed.send(packet_frame).await?;
@@ -107,5 +107,17 @@ impl Connection {
             context,
             next_seq,
         })
+    }
+
+    pub async fn send_packet<P>(&mut self, packet: P) -> Result<(), P::Error>
+    where
+        P: EncodePacket<PacketFrame>,
+        P::Error: From<std::io::Error>,
+    {
+        let mut packet = packet.encode_packet(&self.context)?;
+        packet.set_seq(self.next_seq);
+        self.next_seq = self.next_seq.wrapping_add(1);
+        self.stream.send(packet).await?;
+        Ok(())
     }
 }
