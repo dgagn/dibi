@@ -1,6 +1,7 @@
-use futures::SinkExt;
+use std::collections::VecDeque;
+
+use futures::{SinkExt, StreamExt};
 use tokio::net::{TcpStream, UnixStream};
-use tokio_stream::StreamExt;
 use tokio_util::{codec::Framed, either::Either};
 
 use crate::{
@@ -119,5 +120,15 @@ impl Connection {
         self.next_seq = self.next_seq.wrapping_add(1);
         self.stream.send(packet).await?;
         Ok(())
+    }
+
+    pub async fn recv_packet(&mut self) -> Result<PacketFrame, std::io::Error> {
+        let packet = self
+            .stream
+            .next()
+            .await
+            .ok_or(std::io::Error::from(std::io::ErrorKind::ConnectionAborted))??;
+        self.next_seq = packet.seq().wrapping_add(1);
+        Ok(packet)
     }
 }
