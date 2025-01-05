@@ -18,7 +18,7 @@ pub struct InitialHanshakePacket {
 
 #[derive(Debug, thiserror::Error)]
 pub enum InitialHandshakeError {
-    #[error("Unsupported protocol version: {0}")]
+    #[error("unsupported protocol version: {0}")]
     ProtocolVersion(u8),
 
     #[error(transparent)]

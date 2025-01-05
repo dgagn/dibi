@@ -21,7 +21,7 @@ pub enum StateChange {
 }
 
 #[derive(Debug, thiserror::Error)]
-#[error("Failed to parse state change recv {0}")]
+#[error("failed to parse state change recv {0}")]
 pub struct ParseStateChangeError(u8);
 
 impl TryFrom<u8> for StateChange {

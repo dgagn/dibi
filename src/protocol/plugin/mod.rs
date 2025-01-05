@@ -58,7 +58,7 @@ impl AuthType {
 }
 
 #[derive(Debug, thiserror::Error)]
-#[error("Failed to parse the auth plugin type from {0}")]
+#[error("failed to parse the auth plugin type from {0}")]
 pub struct PluginParseError(String);
 
 impl FromStr for AuthType {

@@ -12,13 +12,13 @@ pub struct ServerVersion {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ParseVersionError {
-    #[error("Could not parse a part of the version to u16")]
+    #[error("could not parse a part of the version to u16")]
     ParseIntError(#[from] ParseIntError),
 
-    #[error("Could not parse the server version to major.minor.patch")]
+    #[error("could not parse the server version to major.minor.patch")]
     Parse,
 
-    #[error("The parts of the version is not correct")]
+    #[error("the parts of the version is not correct")]
     VersionParts,
 }
 

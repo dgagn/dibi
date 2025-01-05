@@ -48,16 +48,13 @@ pub enum ConnectionError {
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
-    #[error("Failed to perform initial handshake")]
+    #[error("failed to perform initial handshake")]
     InitialHandshake(#[from] InitialHandshakeError),
 
-    #[error("The server does not support tls")]
+    #[error("the server does not support tls")]
     TlsCapability,
 
-    #[error("The server requires tls for authentication")]
-    PluginNeedsTls,
-
-    #[error("Unsupported auth plugin {0}")]
+    #[error("unsupported auth plugin {0}")]
     UnsupportedAuthPlugin(AuthType),
 
     #[error(transparent)]
