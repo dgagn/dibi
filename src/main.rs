@@ -10,7 +10,7 @@ async fn main() {
 
     let password = std::env::var("MYSQL_PASSWORD").unwrap();
     let tls_opts = TlsOptions {
-        mode: TlsMode::Required,
+        mode: TlsMode::Disabled,
         ..Default::default()
     };
     let options = ConnectionOption {
@@ -21,7 +21,9 @@ async fn main() {
         password: password.as_bytes(),
         database: None,
     };
-    let connection = Connection::connect(&options).await.unwrap();
+    let mut connection = Connection::connect(&options).await.unwrap();
+
+    //connection.ping().await.unwrap();
 
     println!("Connected to MySQL server");
 }

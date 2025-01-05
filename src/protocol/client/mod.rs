@@ -105,3 +105,24 @@ impl<'a> EncodePacket<PacketFrame> for HandshakeResponse<'a> {
         Ok(PacketFrame::new(bytes.freeze()))
     }
 }
+
+#[derive(Debug, Default)]
+pub struct Ping {
+    _private: (),
+}
+
+impl Ping {
+    pub fn new() -> Self {
+        Self { _private: () }
+    }
+}
+
+impl EncodePacket<PacketFrame> for Ping {
+    type Error = std::io::Error;
+
+    fn encode_packet(self, _context: &Context) -> Result<PacketFrame, Self::Error> {
+        let mut bytes = BytesMut::with_capacity(1);
+        bytes.put_u8(0x0E);
+        Ok(PacketFrame::new(bytes.freeze()))
+    }
+}

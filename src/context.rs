@@ -5,7 +5,7 @@ use crate::{
     },
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct Context {
     server_capabilities: Capability,
     client_capabilities: Capability,
@@ -51,6 +51,17 @@ impl Context {
             connection_id: packet.connection_id,
             status_flags: packet.status_flags,
         }
+    }
+
+    pub fn for_packet(&mut self, initial_handshake_packet: InitialHanshakePacket) {
+        self.server_capabilities = initial_handshake_packet.server_capabilities;
+        self.is_maria_db = initial_handshake_packet.is_maria_db;
+        self.client_collation = initial_handshake_packet.default_collation;
+        self.seed = initial_handshake_packet.seed;
+        self.auth_type = initial_handshake_packet.auth_type;
+        self.server_version = initial_handshake_packet.server_version;
+        self.connection_id = initial_handshake_packet.connection_id;
+        self.status_flags = initial_handshake_packet.status_flags;
     }
 }
 

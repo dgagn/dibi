@@ -2,7 +2,7 @@ use std::{num::ParseIntError, str::FromStr};
 
 const MARIADB_RPL_HACK_PREFIX: &str = "5.5.5-";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub struct ServerVersion {
     major: u16,
     minor: u16,

@@ -2,7 +2,7 @@ use futures::SinkExt;
 use tokio::net::{TcpStream, UnixStream};
 use tokio_native_tls::native_tls;
 use tokio_stream::StreamExt;
-use tokio_util::{codec::Framed, either::Either};
+use tokio_util::codec::Framed;
 
 use crate::{
     codec::{PacketCodec, PacketFrame},
@@ -13,16 +13,14 @@ use crate::{
         server::{InitialHandshakeError, InitialHanshakePacket},
         Capability,
     },
-    ssl::{StreamTransporter, TlsMode, TlsOptions},
+    ssl::{into_tls_parts, StreamTransporter, TlsMode, TlsOptions, UpgradeStream},
     stream::{Stream, StreamType},
     EncodePacket,
 };
 
 #[derive(Debug)]
 pub struct Connection {
-    stream: Framed<StreamTransporter, PacketCodec>,
-    context: Context,
-    next_seq: u8,
+    stream: MyStream,
 }
 
 #[derive(Debug)]
@@ -69,7 +67,78 @@ pub enum ConnectionError {
     AuthPluginError(#[from] AuthTypeError),
 
     #[error(transparent)]
+    UpgradeError(#[from] crate::ssl::UpgradeError),
+
+    #[error(transparent)]
     Tls(#[from] native_tls::Error),
+}
+
+pub type FramedStream = Framed<StreamTransporter, PacketCodec>;
+
+#[derive(Debug)]
+pub struct MyStream {
+    stream: FramedStream,
+    context: Context,
+    sequence: u8,
+}
+
+impl MyStream {
+    pub fn new(stream: FramedStream) -> Self {
+        Self {
+            stream,
+            context: Context::default(),
+            sequence: 0,
+        }
+    }
+
+    pub fn context(&self) -> &Context {
+        &self.context
+    }
+
+    pub fn context_mut(&mut self) -> &mut Context {
+        &mut self.context
+    }
+
+    pub fn handshake_packet(&mut self, packet: InitialHanshakePacket) {
+        self.context.for_packet(packet);
+    }
+
+    pub async fn send_packet<P>(&mut self, packet: P) -> Result<(), std::io::Error>
+    where
+        P: EncodePacket<PacketFrame>,
+        P::Error: Into<std::io::Error>,
+    {
+        let mut frame = packet.encode_packet(&self.context).map_err(Into::into)?;
+        frame.seq = self.sequence;
+        self.stream.send(frame).await?;
+        self.sequence = self.sequence.wrapping_add(1);
+
+        Ok(())
+    }
+
+    pub async fn recv_packet(&mut self) -> Result<PacketFrame, std::io::Error> {
+        let packet = self
+            .stream
+            .next()
+            .await
+            .ok_or(std::io::Error::from(std::io::ErrorKind::ConnectionAborted))??;
+        self.sequence = packet.seq.wrapping_add(1);
+        Ok(packet)
+    }
+}
+
+impl UpgradeStream for MyStream {
+    async fn maybe_upgrade_tls(
+        self,
+        parts: Option<(&str, tokio_native_tls::TlsConnector)>,
+    ) -> Result<Self, crate::ssl::UpgradeError> {
+        let stream = self.stream.maybe_upgrade_tls(parts).await?;
+        Ok(Self {
+            stream,
+            context: self.context,
+            sequence: self.sequence,
+        })
+    }
 }
 
 impl Connection {
@@ -78,48 +147,37 @@ impl Connection {
             StreamType::Tcp => Stream::Tcp(TcpStream::connect(options.host).await?),
             StreamType::Unix => Stream::Unix(UnixStream::connect(options.host).await?),
         };
+        let stream = StreamTransporter::Left(stream);
         let codec = PacketCodec::new();
-        let mut framed = Framed::new(stream, codec);
+        let mut mystream = MyStream::new(Framed::new(stream, codec));
 
-        let packet = framed
-            .next()
-            .await
-            .ok_or(std::io::Error::from(std::io::ErrorKind::ConnectionAborted))??;
-
-        let mut next_seq = packet.seq().wrapping_add(1);
+        let packet = mystream.recv_packet().await?;
         let handshake: InitialHanshakePacket = packet.try_into()?;
-        let mut context = Context::new(handshake);
+        mystream.handshake_packet(handshake);
 
         if matches!(
             options.tls.mode,
             TlsMode::Required | TlsMode::VerifyCa | TlsMode::VerifyFull
-        ) && !context.has_server_capability(Capability::SSL)
+        ) && !mystream.context().has_server_capability(Capability::SSL)
         {
             return Err(ConnectionError::TlsCapability);
         }
 
-        let parts = Stream::into_tls_parts(&options.tls)?;
+        let parts = into_tls_parts(&options.tls).await?;
 
-        let mut stream = if let Some(parts) = parts {
+        let stream = if parts.is_some() {
+            let context = mystream.context_mut();
             context.set_client_capability(Capability::SSL);
-            let mut packet_frame = SslPacket::new().encode_packet(&context)?;
-            packet_frame.set_seq(next_seq);
-            framed.send(packet_frame).await?;
-            next_seq = next_seq.wrapping_add(1);
-
-            let framed_parts = framed.into_parts();
-            let (stream, codec) = (framed_parts.io, framed_parts.codec);
-
-            let stream = stream.maybe_upgrade_from_parts(parts).await?;
-
-            Framed::new(stream, codec)
+            let ssl_packet = SslPacket::new();
+            mystream.send_packet(ssl_packet).await?;
+            mystream
         } else {
-            let framed_parts = framed.into_parts();
-            let (stream, codec) = (framed_parts.io, framed_parts.codec);
-
-            Framed::new(Either::Left(stream), codec)
+            mystream
         };
 
+        let mut stream = stream.maybe_upgrade_tls(parts).await?;
+
+        let context = stream.context();
         let auth_type = context.auth_type();
 
         if !auth_type.supported() {
@@ -130,7 +188,7 @@ impl Connection {
             return Err(ConnectionError::TlsCapability);
         }
 
-        let password = auth_type.encrypt(options.password, &context)?;
+        let password = auth_type.encrypt(options.password, context)?;
 
         let handshake = HandshakeResponse {
             username: options.username,
@@ -138,45 +196,22 @@ impl Connection {
             database: options.database,
         };
 
-        let mut response = handshake.encode_packet(&context)?;
-        response.set_seq(next_seq);
-        next_seq = next_seq.wrapping_add(1);
-        stream.send(response).await?;
+        stream.send_packet(handshake).await?;
 
-        let packet = stream
-            .next()
-            .await
-            .ok_or(std::io::Error::from(std::io::ErrorKind::ConnectionAborted))??;
+        let packet = stream.recv_packet().await?;
 
         println!("{:?}", packet);
 
-        Ok(Self {
-            stream,
-            context,
-            next_seq,
-        })
+        Ok(Self { stream })
     }
 
-    pub async fn send_packet<P>(&mut self, packet: P) -> Result<(), P::Error>
-    where
-        P: EncodePacket<PacketFrame>,
-        P::Error: From<std::io::Error>,
-    {
-        let mut packet = packet.encode_packet(&self.context)?;
-        packet.set_seq(self.next_seq);
-        self.next_seq = self.next_seq.wrapping_add(1);
-        self.stream.send(packet).await?;
+    pub async fn ping(&mut self) -> Result<(), std::io::Error> {
+        //let ping = client::Ping::new();
+        //let packet = ping.encode_packet(&self.context)?;
+        //self.stream.send(packet).await?;
+        //let packet = self.recv_packet().await?;
+        //println!("{:?}", packet);
         Ok(())
-    }
-
-    pub async fn recv_packet(&mut self) -> Result<PacketFrame, std::io::Error> {
-        let packet = self
-            .stream
-            .next()
-            .await
-            .ok_or(std::io::Error::from(std::io::ErrorKind::ConnectionAborted))??;
-        self.next_seq = packet.seq().wrapping_add(1);
-        Ok(packet)
     }
 }
 

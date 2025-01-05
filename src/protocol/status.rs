@@ -1,5 +1,5 @@
 bitflags::bitflags! {
-    #[derive(Debug, PartialEq, Eq, Clone, Copy)]
+    #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
     pub struct ServerStatus: u16 {
         const IN_TRANSACTION = 1;
         const AUTOCOMMIT = 2;
