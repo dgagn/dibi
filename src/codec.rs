@@ -45,7 +45,7 @@ impl PacketCodec {
 }
 
 /// The maximum chunk size is 16MB (3 bytes)
-pub const MAX_CHUNK_SIZE: usize = 0xFFFFFF;
+pub const MAX_BUFFER_SIZE: usize = 0xFFFFFF;
 
 /// The default maximum packet size is 1GB
 pub const MAX_PACKET_SIZE: usize = 1024 * 1024 * 1024;
@@ -117,7 +117,7 @@ impl Encoder<PacketFrame> for PacketCodec {
         dst.reserve(HEADER_SIZE + remaining);
 
         while remaining > 0 {
-            let len = std::cmp::min(remaining, MAX_CHUNK_SIZE);
+            let len = std::cmp::min(remaining, MAX_BUFFER_SIZE);
             dst.put_uint_le(len as u64, 3);
             #[cfg(feature = "tracing")]
             tracing::debug!(
@@ -131,7 +131,7 @@ impl Encoder<PacketFrame> for PacketCodec {
             self.expected_sequence = self.expected_sequence.wrapping_add(1);
         }
 
-        if !item.buffer.is_empty() && (item.buffer.len() % MAX_CHUNK_SIZE) == 0 {
+        if !item.buffer.is_empty() && (item.buffer.len() % MAX_BUFFER_SIZE) == 0 {
             dst.put_uint_le(0, 3);
             dst.put_u8(self.expected_sequence);
         }

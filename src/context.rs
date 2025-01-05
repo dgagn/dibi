@@ -30,7 +30,6 @@ impl Context {
             | Capability::PLUGIN_AUTH
             | Capability::PLUGIN_AUTH_LENENC_CLIENT_DATA
             | Capability::CLIENT_SESSION_TRACK
-        // | Capability::CONNECT_ATTRS : todo
     }
 }
 
