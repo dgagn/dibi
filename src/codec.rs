@@ -13,6 +13,12 @@ impl PacketFrame {
         Self { buffer }
     }
 
+    pub fn empty() -> Self {
+        Self {
+            buffer: bytes::Bytes::new(),
+        }
+    }
+
     pub fn take_buffer(self) -> bytes::Bytes {
         self.buffer
     }
