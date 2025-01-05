@@ -49,7 +49,6 @@ pub struct HandshakeResponse<'a> {
 
 impl<'a> HandshakeResponse<'a> {
     pub fn size_hint(&self) -> usize {
-        // 4 + 4 + 1 + 19 + 4 + username.len() + 1 +
         512
     }
 }

@@ -77,8 +77,8 @@ pub type FramedStream = Framed<StreamTransporter, PacketCodec>;
 
 #[derive(Debug)]
 pub struct MyStream {
-    stream: FramedStream,
-    context: Context,
+    pub(crate) stream: FramedStream,
+    pub(crate) context: Context,
 }
 
 impl MyStream {
@@ -127,19 +127,6 @@ impl MyStream {
         let packet = self.recv().await?;
         // parse ok err switch packet
         Ok(packet)
-    }
-}
-
-impl UpgradeStream for MyStream {
-    async fn maybe_upgrade_tls(
-        self,
-        parts: Option<(&str, tokio_native_tls::TlsConnector)>,
-    ) -> Result<Self, crate::ssl::UpgradeError> {
-        let stream = self.stream.maybe_upgrade_tls(parts).await?;
-        Ok(Self {
-            stream,
-            context: self.context,
-        })
     }
 }
 
