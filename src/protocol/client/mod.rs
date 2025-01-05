@@ -94,14 +94,6 @@ impl<'a> EncodePacket<PacketFrame> for HandshakeResponse<'a> {
             bytes.put_str_null_terminated(auth_type.name());
         }
 
-        if context.has_client_capability(Capability::CONNECT_ATTRS) {
-            // todo
-        }
-
-        if context.has_client_capability(Capability::CLIENT_ZSTD_COMPRESSION_ALGORITHM) {
-            // todo
-        }
-
         Ok(PacketFrame::new(bytes.freeze()))
     }
 }
