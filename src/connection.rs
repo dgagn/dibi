@@ -2,7 +2,7 @@ use futures::SinkExt;
 use tokio::net::{TcpStream, UnixStream};
 use tokio_native_tls::native_tls;
 use tokio_stream::StreamExt;
-use tokio_util::codec::Framed;
+use tokio_util::{codec::Framed, either::Either};
 
 use crate::{
     codec::{PacketCodec, PacketFrame},
@@ -77,8 +77,8 @@ pub type FramedStream = Framed<StreamTransporter, PacketCodec>;
 
 #[derive(Debug)]
 pub struct MyStream {
-    pub(crate) stream: FramedStream,
-    pub(crate) context: Context,
+    stream: FramedStream,
+    context: Context,
 }
 
 impl MyStream {
@@ -127,6 +127,36 @@ impl MyStream {
         let packet = self.recv().await?;
         // parse ok err switch packet
         Ok(packet)
+    }
+}
+
+impl UpgradeStream for MyStream {
+    async fn maybe_upgrade_tls(
+        self,
+        parts: Option<(&str, tokio_native_tls::TlsConnector)>,
+    ) -> Result<Self, crate::ssl::UpgradeError> {
+        let stream = if let Some((domain, connector)) = parts {
+            let parts = self.stream.into_parts();
+            let (stream, codec) = (parts.io, parts.codec);
+            let stream = match stream {
+                Either::Left(stream) => stream,
+                Either::Right(stream) => {
+                    return Ok(MyStream::new(Framed::new(Either::Right(stream), codec)));
+                }
+            };
+
+            let tls_stream = connector.connect(domain, stream).await?;
+
+            let transporter = StreamTransporter::Right(tls_stream);
+            Framed::new(transporter, codec)
+        } else {
+            self.stream
+        };
+
+        Ok(Self {
+            stream,
+            context: self.context,
+        })
     }
 }
 
