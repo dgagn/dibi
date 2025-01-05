@@ -97,6 +97,17 @@ impl Encoder<PacketFrame> for PacketCodec {
 
     fn encode(&mut self, item: PacketFrame, dst: &mut bytes::BytesMut) -> Result<(), Self::Error> {
         let mut remaining = item.buffer.len();
+
+        if remaining > MAX_PACKET_SIZE {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!(
+                    "Packet size exceeds the maximum allowed size: {} > {}",
+                    remaining, MAX_PACKET_SIZE
+                ),
+            ));
+        }
+
         dst.reserve(HEADER_SIZE + remaining);
 
         while remaining > 0 {

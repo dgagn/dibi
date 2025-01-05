@@ -20,6 +20,7 @@ tracing = { version = "0.1.41", optional = true }
 
 # Will remove this
 dotenvy = "0.15.7"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 
 [features]
 default = ["tracing"]

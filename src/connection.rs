@@ -155,11 +155,15 @@ impl Connection {
 
         let packet = mystream.recv().await?;
         let handshake: InitialHanshakePacket = packet.try_into()?;
+
+        #[cfg(feature = "tracing")]
+        tracing::debug!("Received handshake packet");
+
         mystream.handshake_packet(handshake);
 
         if matches!(
             options.tls.mode,
-            TlsMode::Required | TlsMode::VerifyCa | TlsMode::VerifyFull
+            TlsMode::Require | TlsMode::VerifyCa | TlsMode::VerifyFull
         ) && !mystream.context().has_server_capability(Capability::SSL)
         {
             return Err(ConnectionError::TlsCapability);
@@ -168,6 +172,8 @@ impl Connection {
         let parts = into_tls_parts(&options.tls).await?;
 
         let stream = if parts.is_some() {
+            #[cfg(feature = "tracing")]
+            tracing::debug!("Sending TLS packet to server for upgrade");
             let context = mystream.context_mut();
             context.set_client_capability(Capability::SSL);
             let ssl_packet = SslPacket::new();
@@ -192,6 +198,9 @@ impl Connection {
 
         let password = auth_type.encrypt(options.password, context)?;
 
+        #[cfg(feature = "tracing")]
+        tracing::debug!("Sending handshake response packet");
+
         let handshake = HandshakeResponse {
             username: options.username,
             password: &password,
@@ -208,6 +217,8 @@ impl Connection {
     }
 
     pub async fn ping(&mut self) -> Result<(), std::io::Error> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!("Sending ping packet");
         let ping = client::Ping::new();
         self.stream.send_packet(ping).await?;
         let packet = self.stream.recv_packet().await?;

@@ -7,10 +7,13 @@ use dibi::{
 #[tokio::main]
 async fn main() {
     dotenvy::dotenv().ok();
+    tracing_subscriber::fmt::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
 
     let password = std::env::var("MYSQL_PASSWORD").unwrap();
     let tls_opts = TlsOptions {
-        mode: TlsMode::Disabled,
+        mode: TlsMode::Require,
         ..Default::default()
     };
     let options = ConnectionOption {

@@ -14,11 +14,11 @@ pub type StreamTransporter = Either<Stream, TlsStream<Stream>>;
 pub enum TlsMode {
     /// Do not use SSL/TLS.
     #[default]
-    Disabled,
+    Disable,
     /// Use SSL/TLS if the server supports it, but allow a connection without
-    Preferred,
+    Prefer,
     /// Use SSL/TLS, fail if the server does not support it.
-    Required,
+    Require,
     /// Use SSL/TLS, verify that the server certificate is issued by a trusted CA
     VerifyCa,
     /// Use SSL/TLS, verify the server certificate CA and matches the server's hostname
@@ -104,20 +104,18 @@ impl EitherExt for StreamTransporter {
 pub async fn into_tls_parts<'a>(
     ssl_opts: &TlsOptions<'a>,
 ) -> Result<Option<(&'a str, TlsConnector)>, native_tls::Error> {
-    if ssl_opts.mode == TlsMode::Disabled {
+    if ssl_opts.mode == TlsMode::Disable {
         return Ok(None);
     }
 
     let mut connector = native_tls::TlsConnector::builder();
 
-    connector.danger_accept_invalid_certs(matches!(
-        ssl_opts.mode,
-        TlsMode::Required | TlsMode::Preferred
-    ));
+    connector
+        .danger_accept_invalid_certs(matches!(ssl_opts.mode, TlsMode::Require | TlsMode::Prefer));
 
     connector.danger_accept_invalid_hostnames(matches!(
         ssl_opts.mode,
-        TlsMode::Required | TlsMode::Preferred | TlsMode::VerifyCa,
+        TlsMode::Require | TlsMode::Prefer | TlsMode::VerifyCa,
     ));
 
     if let (Some(pem), Some(key)) = (ssl_opts.pem, ssl_opts.key) {
@@ -161,7 +159,7 @@ impl Stream {
     pub fn into_tls_parts<'a>(
         ssl_opts: &TlsOptions<'a>,
     ) -> Result<Option<(&'a str, TlsConnector)>, native_tls::Error> {
-        if ssl_opts.mode == TlsMode::Disabled {
+        if ssl_opts.mode == TlsMode::Disable {
             return Ok(None);
         }
 
@@ -169,12 +167,12 @@ impl Stream {
 
         connector.danger_accept_invalid_certs(matches!(
             ssl_opts.mode,
-            TlsMode::Required | TlsMode::Preferred
+            TlsMode::Require | TlsMode::Prefer
         ));
 
         connector.danger_accept_invalid_hostnames(matches!(
             ssl_opts.mode,
-            TlsMode::Required | TlsMode::Preferred | TlsMode::VerifyCa,
+            TlsMode::Require | TlsMode::Prefer | TlsMode::VerifyCa,
         ));
 
         if let (Some(pem), Some(key)) = (ssl_opts.pem, ssl_opts.key) {
