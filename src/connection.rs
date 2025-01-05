@@ -79,7 +79,6 @@ pub type FramedStream = Framed<StreamTransporter, PacketCodec>;
 pub struct MyStream {
     stream: FramedStream,
     context: Context,
-    sequence: u8,
 }
 
 impl MyStream {
@@ -87,7 +86,6 @@ impl MyStream {
         Self {
             stream,
             context: Context::default(),
-            sequence: 0,
         }
     }
 
@@ -112,8 +110,7 @@ impl MyStream {
             let codec_mut = self.stream.codec_mut();
             codec_mut.reset_sequence();
         }
-        let mut frame = packet.encode_packet(&self.context).map_err(Into::into)?;
-        frame.set_sequence(self.sequence);
+        let frame = packet.encode_packet(&self.context).map_err(Into::into)?;
         self.stream.send(frame).await?;
 
         Ok(())
@@ -138,7 +135,6 @@ impl UpgradeStream for MyStream {
         Ok(Self {
             stream,
             context: self.context,
-            sequence: self.sequence,
         })
     }
 }

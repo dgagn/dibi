@@ -37,6 +37,10 @@ impl PacketCodec {
     pub fn reset_sequence(&mut self) {
         self.expected_sequence = 0;
     }
+
+    pub fn sequence(&self) -> u8 {
+        self.expected_sequence
+    }
 }
 
 /// The maximum chunk size is 16MB (3 bytes)
