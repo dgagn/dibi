@@ -6,9 +6,9 @@ use crate::{
     codec::PacketCodec,
     my::{stream::StreamTransporter, MyStream},
     protocol::{
-        client::{self, HandshakeResponse, SslPacket},
+        client::{com::PingPacket, HandshakeResponsePacket, SslPacket},
         plugin::{AuthType, AuthTypeError},
-        server::{InitialHandshakeError, InitialHanshakePacket},
+        server::{error::InitialHandshakeError, InitialHanshakePacket},
         Capability,
     },
     ssl::{into_tls_parts, TlsMode, TlsOptions, UpgradeStream},
@@ -125,7 +125,7 @@ impl Connection {
         #[cfg(feature = "tracing")]
         tracing::debug!("Sending handshake response packet");
 
-        let handshake = HandshakeResponse {
+        let handshake = HandshakeResponsePacket {
             username: options.username,
             password: &password,
             database: options.database,
@@ -143,7 +143,7 @@ impl Connection {
     pub async fn ping(&mut self) -> Result<(), std::io::Error> {
         #[cfg(feature = "tracing")]
         tracing::debug!("Sending ping packet");
-        let ping = client::Ping::new();
+        let ping = PingPacket::new();
         self.stream.send_packet(ping).await?;
         let packet = self.stream.recv_packet().await?;
         println!("{:?}", packet);
