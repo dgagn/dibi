@@ -15,7 +15,7 @@ use crate::{
     },
     ssl::{into_tls_parts, StreamTransporter, TlsMode, TlsOptions, UpgradeStream},
     stream::{Stream, StreamType},
-    EncodePacket,
+    DecodePacket, EncodePacket,
 };
 
 #[derive(Debug)]
@@ -116,12 +116,13 @@ impl MyStream {
         Ok(())
     }
 
-    pub async fn recv_packet(&mut self) -> Result<PacketFrame, std::io::Error> {
+    pub async fn recv_packet<P>(&mut self) -> Result<PacketFrame, std::io::Error> {
         let packet = self
             .stream
             .next()
             .await
             .ok_or(std::io::Error::from(std::io::ErrorKind::ConnectionAborted))??;
+        // parse ok err switch packet
         Ok(packet)
     }
 }
@@ -149,7 +150,7 @@ impl Connection {
         let codec = PacketCodec::new();
         let mut mystream = MyStream::new(Framed::new(stream, codec));
 
-        let packet = mystream.recv_packet().await?;
+        let packet = mystream.recv_packet::<InitialHanshakePacket>().await?;
         let handshake: InitialHanshakePacket = packet.try_into()?;
         mystream.handshake_packet(handshake);
 
