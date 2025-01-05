@@ -9,6 +9,8 @@ pub mod protocol;
 pub mod ssl;
 pub mod stream;
 
+pub mod my;
+
 pub trait BytesExt {
     fn get_bytes_null(&mut self) -> Result<bytes::Bytes, std::io::Error>;
 }

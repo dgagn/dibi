@@ -2,13 +2,8 @@ use std::future::Future;
 
 use tokio_native_tls::{
     native_tls::{self},
-    TlsConnector, TlsStream,
+    TlsConnector,
 };
-use tokio_util::{codec::Framed, either::Either};
-
-use crate::{connection::MyStream, stream::Stream};
-
-pub type StreamTransporter = Either<Stream, TlsStream<Stream>>;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum TlsMode {
