@@ -5,21 +5,16 @@ use tokio_util::codec::{Decoder, Encoder};
 
 #[derive(Debug)]
 pub struct PacketFrame {
-    seq: u8,
     buffer: bytes::Bytes,
 }
 
 impl PacketFrame {
     pub fn new(buffer: bytes::Bytes) -> Self {
-        Self { seq: 0, buffer }
+        Self { buffer }
     }
 
     pub fn take_buffer(self) -> bytes::Bytes {
         self.buffer
-    }
-
-    pub fn set_sequence(&mut self, sequence: u8) {
-        self.seq = sequence;
     }
 }
 
@@ -77,7 +72,9 @@ impl Decoder for PacketCodec {
 
         let bytes = src.split_to(len).freeze();
 
+        #[cfg(feature = "tracing")]
         tracing::debug!("Decoded packet: seq={}, len={}", seq, len);
+
         if self.expected_sequence != seq {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
@@ -90,7 +87,7 @@ impl Decoder for PacketCodec {
 
         self.expected_sequence = seq.wrapping_add(1);
 
-        Ok(Some(PacketFrame { seq, buffer: bytes }))
+        Ok(Some(PacketFrame { buffer: bytes }))
     }
 }
 
@@ -105,6 +102,7 @@ impl Encoder<PacketFrame> for PacketCodec {
         while remaining > 0 {
             let len = std::cmp::min(remaining, MAX_CHUNK_SIZE);
             dst.put_uint_le(len as u64, 3);
+            #[cfg(feature = "tracing")]
             tracing::debug!(
                 "Encoded packet: seq={}, len={}",
                 self.expected_sequence,

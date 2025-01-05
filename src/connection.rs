@@ -125,7 +125,6 @@ impl MyStream {
 
     pub async fn recv_packet(&mut self) -> Result<PacketFrame, std::io::Error> {
         let packet = self.recv().await?;
-
         // parse ok err switch packet
         Ok(packet)
     }
