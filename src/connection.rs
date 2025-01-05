@@ -5,7 +5,7 @@ use crate::{
     codec::PacketCodec,
     my::{stream::StreamTransporter, MyStream},
     protocol::{
-        client::{com::PingPacket, HandshakeResponsePacket, SslPacket},
+        client::{com::ComPing, HandshakeResponsePacket, SslPacket},
         plugin::{AuthType, AuthTypeError},
         server::{error::InitialHandshakeError, InitialHanshakePacket},
         Capability,
@@ -43,7 +43,7 @@ impl<'a> Default for ConnectionOption<'a> {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum ConnectionError {
+pub enum ConnectError {
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
@@ -64,7 +64,7 @@ pub enum ConnectionError {
 }
 
 impl Connection {
-    pub async fn connect<'a>(options: &'a ConnectionOption<'a>) -> Result<Self, ConnectionError> {
+    pub async fn connect<'a>(options: &'a ConnectionOption<'a>) -> Result<Self, ConnectError> {
         let stream = match options.stream_type {
             StreamType::Tcp => Stream::Tcp(TcpStream::connect(options.host).await?),
             StreamType::Unix => Stream::Unix(UnixStream::connect(options.host).await?),
@@ -79,6 +79,8 @@ impl Connection {
         #[cfg(feature = "tracing")]
         tracing::debug!("Received handshake packet");
 
+        println!("{:?}", handshake);
+
         mystream.handshake_packet(handshake);
 
         if matches!(
@@ -86,12 +88,13 @@ impl Connection {
             TlsMode::Require | TlsMode::VerifyCa | TlsMode::VerifyFull
         ) && !mystream.context().has_server_capability(Capability::SSL)
         {
-            return Err(ConnectionError::TlsCapability);
+            return Err(ConnectError::TlsCapability);
         }
 
         let parts = into_tls_parts(&options.tls).await?;
 
         let stream = if parts.is_some() {
+            println!("ssl");
             #[cfg(feature = "tracing")]
             tracing::debug!("Sending TLS packet to server for upgrade");
             let context = mystream.context_mut();
@@ -109,11 +112,11 @@ impl Connection {
         let auth_type = context.auth_type();
 
         if !auth_type.supported() {
-            return Err(ConnectionError::UnsupportedAuthPlugin(auth_type));
+            return Err(ConnectError::UnsupportedAuthPlugin(auth_type));
         }
 
         if auth_type.needs_ssl() && !context.has_client_capability(Capability::SSL) {
-            return Err(ConnectionError::TlsCapability);
+            return Err(ConnectError::TlsCapability);
         }
 
         let password = auth_type.encrypt(options.password, context)?;
@@ -139,7 +142,7 @@ impl Connection {
     pub async fn ping(&mut self) -> Result<(), std::io::Error> {
         #[cfg(feature = "tracing")]
         tracing::debug!("Sending ping packet");
-        let ping = PingPacket::new();
+        let ping = ComPing::new();
         self.stream.send_packet(ping).await?;
         let packet = self.stream.recv_packet().await?;
         println!("{:?}", packet);

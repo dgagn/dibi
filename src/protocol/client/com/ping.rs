@@ -3,17 +3,17 @@ use bytes::{BufMut, BytesMut};
 use crate::{codec::PacketFrame, context::Context, EncodePacket};
 
 #[derive(Debug, Default)]
-pub struct PingPacket {
+pub struct ComPing {
     _private: (),
 }
 
-impl PingPacket {
+impl ComPing {
     pub fn new() -> Self {
         Self { _private: () }
     }
 }
 
-impl EncodePacket<PacketFrame> for PingPacket {
+impl EncodePacket<PacketFrame> for ComPing {
     type Error = std::io::Error;
 
     fn encode_packet(self, _context: &Context) -> Result<PacketFrame, Self::Error> {

@@ -13,18 +13,20 @@ async fn main() {
 
     let password = std::env::var("MYSQL_PASSWORD").unwrap();
     let tls_opts = TlsOptions {
-        mode: TlsMode::Require,
+        mode: TlsMode::Disable,
         ..Default::default()
     };
     let options = ConnectionOption {
         host: "127.0.0.1:3306",
         stream_type: StreamType::Tcp,
         tls: tls_opts,
-        username: "ovior",
+        username: "oviora",
         password: password.as_bytes(),
         database: None,
     };
     let mut connection = Connection::connect(&options).await.unwrap();
+
+    connection.ping().await.unwrap();
 
     connection.ping().await.unwrap();
 

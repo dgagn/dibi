@@ -1,3 +1,3 @@
 mod ping;
 
-pub use ping::PingPacket;
+pub use ping::ComPing;
