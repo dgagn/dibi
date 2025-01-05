@@ -1,5 +1,4 @@
 use tokio::net::{TcpStream, UnixStream};
-use tokio_native_tls::native_tls;
 use tokio_util::codec::Framed;
 
 use crate::{
@@ -60,11 +59,8 @@ pub enum ConnectionError {
     #[error(transparent)]
     AuthPluginError(#[from] AuthTypeError),
 
-    #[error(transparent)]
+    #[error("failed to upgrade to tls")]
     UpgradeError(#[from] crate::ssl::UpgradeError),
-
-    #[error(transparent)]
-    Tls(#[from] native_tls::Error),
 }
 
 impl Connection {

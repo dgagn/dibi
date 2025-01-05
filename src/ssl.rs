@@ -58,7 +58,7 @@ pub enum UpgradeError {
 
 pub async fn into_tls_parts<'a>(
     ssl_opts: &TlsOptions<'a>,
-) -> Result<Option<(&'a str, TlsConnector)>, native_tls::Error> {
+) -> Result<Option<(&'a str, TlsConnector)>, UpgradeError> {
     if ssl_opts.mode == TlsMode::Disable {
         return Ok(None);
     }
