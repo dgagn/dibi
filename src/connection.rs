@@ -8,7 +8,7 @@ use crate::{
     codec::{PacketCodec, PacketFrame},
     context::Context,
     protocol::{
-        client::{HandshakeResponse, SslPacket},
+        client::{self, HandshakeResponse, SslPacket},
         plugin::{AuthType, AuthTypeError},
         server::{InitialHandshakeError, InitialHanshakePacket},
         Capability,
@@ -108,10 +108,13 @@ impl MyStream {
         P: EncodePacket<PacketFrame>,
         P::Error: Into<std::io::Error>,
     {
+        if packet.is_command_packet() {
+            let codec_mut = self.stream.codec_mut();
+            codec_mut.reset_sequence();
+        }
         let mut frame = packet.encode_packet(&self.context).map_err(Into::into)?;
-        frame.seq = self.sequence;
+        frame.set_sequence(self.sequence);
         self.stream.send(frame).await?;
-        self.sequence = self.sequence.wrapping_add(1);
 
         Ok(())
     }
@@ -122,7 +125,6 @@ impl MyStream {
             .next()
             .await
             .ok_or(std::io::Error::from(std::io::ErrorKind::ConnectionAborted))??;
-        self.sequence = packet.seq.wrapping_add(1);
         Ok(packet)
     }
 }
@@ -206,11 +208,10 @@ impl Connection {
     }
 
     pub async fn ping(&mut self) -> Result<(), std::io::Error> {
-        //let ping = client::Ping::new();
-        //let packet = ping.encode_packet(&self.context)?;
-        //self.stream.send(packet).await?;
-        //let packet = self.recv_packet().await?;
-        //println!("{:?}", packet);
+        let ping = client::Ping::new();
+        self.stream.send_packet(ping).await?;
+        let packet = self.stream.recv_packet().await?;
+        println!("{:?}", packet);
         Ok(())
     }
 }

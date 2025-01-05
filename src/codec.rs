@@ -5,7 +5,7 @@ use tokio_util::codec::{Decoder, Encoder};
 
 #[derive(Debug)]
 pub struct PacketFrame {
-    pub seq: u8,
+    seq: u8,
     buffer: bytes::Bytes,
 }
 
@@ -17,18 +17,25 @@ impl PacketFrame {
     pub fn take_buffer(self) -> bytes::Bytes {
         self.buffer
     }
+
+    pub fn set_sequence(&mut self, sequence: u8) {
+        self.seq = sequence;
+    }
 }
 
 #[derive(Debug, Default)]
 pub struct PacketCodec {
-    expected_sequence: Option<u8>,
+    expected_sequence: u8,
 }
 
 impl PacketCodec {
     pub fn new() -> Self {
-        Self {
-            expected_sequence: Some(0),
-        }
+        Self::default()
+    }
+
+    #[inline]
+    pub fn reset_sequence(&mut self) {
+        self.expected_sequence = 0;
     }
 }
 
@@ -66,20 +73,18 @@ impl Decoder for PacketCodec {
 
         let bytes = src.split_to(len).freeze();
 
-        println!("Decoded packet: seq={}, len={}", seq, len);
-        if let Some(sequence) = self.expected_sequence {
-            if sequence != seq {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    format!(
-                        "Invalid sequence number: expected {}, got {}",
-                        sequence, seq
-                    ),
-                ));
-            }
-
-            self.expected_sequence = Some(seq.wrapping_add(1));
+        tracing::debug!("Decoded packet: seq={}, len={}", seq, len);
+        if self.expected_sequence != seq {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!(
+                    "Invalid sequence number: expected {}, got {}",
+                    self.expected_sequence, seq
+                ),
+            ));
         }
+
+        self.expected_sequence = seq.wrapping_add(1);
 
         Ok(Some(PacketFrame { seq, buffer: bytes }))
     }
@@ -91,22 +96,25 @@ impl Encoder<PacketFrame> for PacketCodec {
 
     fn encode(&mut self, item: PacketFrame, dst: &mut bytes::BytesMut) -> Result<(), Self::Error> {
         let mut remaining = item.buffer.len();
-        let seq = self.expected_sequence.unwrap_or(0);
         dst.reserve(HEADER_SIZE + remaining);
 
         while remaining > 0 {
             let len = std::cmp::min(remaining, MAX_CHUNK_SIZE);
             dst.put_uint_le(len as u64, 3);
-            println!("Encoded packet: seq={}, len={}", seq, len);
-            dst.put_u8(seq);
+            tracing::debug!(
+                "Encoded packet: seq={}, len={}",
+                self.expected_sequence,
+                len
+            );
+            dst.put_u8(self.expected_sequence);
             dst.put_slice(&item.buffer[item.buffer.len() - remaining..]);
             remaining -= len;
-            self.expected_sequence = Some(seq.wrapping_add(1));
+            self.expected_sequence = self.expected_sequence.wrapping_add(1);
         }
 
         if !item.buffer.is_empty() && (item.buffer.len() % MAX_CHUNK_SIZE) == 0 {
             dst.put_uint_le(0, 3);
-            dst.put_u8(seq);
+            dst.put_u8(self.expected_sequence);
         }
 
         Ok(())

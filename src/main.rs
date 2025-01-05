@@ -23,7 +23,7 @@ async fn main() {
     };
     let mut connection = Connection::connect(&options).await.unwrap();
 
-    //connection.ping().await.unwrap();
+    connection.ping().await.unwrap();
 
     println!("Connected to MySQL server");
 }

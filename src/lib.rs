@@ -74,6 +74,10 @@ pub trait EncodePacket<T> {
     type Error;
 
     fn encode_packet(self, context: &Context) -> Result<T, Self::Error>;
+
+    fn is_command_packet(&self) -> bool {
+        false
+    }
 }
 
 impl<U> EncodePacket<U> for PacketFrame

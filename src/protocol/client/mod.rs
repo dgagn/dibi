@@ -125,4 +125,8 @@ impl EncodePacket<PacketFrame> for Ping {
         bytes.put_u8(0x0E);
         Ok(PacketFrame::new(bytes.freeze()))
     }
+
+    fn is_command_packet(&self) -> bool {
+        true
+    }
 }
