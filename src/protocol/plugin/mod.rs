@@ -1,14 +1,31 @@
-use std::str::FromStr;
+use std::{fmt, str::FromStr};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+use native::mysql_native_password;
+
+use crate::context::Context;
+
+pub mod native;
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum AuthType {
+    #[default]
     Native,
     Clear,
     Sha256,
     CachedSha2,
     Parsec,
     Gssapi,
+    Ed25519,
 }
+
+impl fmt::Display for AuthType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.name())
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum AuthTypeError {}
 
 impl AuthType {
     pub fn name(&self) -> &'static str {
@@ -19,6 +36,7 @@ impl AuthType {
             Self::Clear => "mysql_clear_password",
             Self::Parsec => "parsec",
             Self::Gssapi => "auth_gssapi_client",
+            Self::Ed25519 => "client_ed25519",
         }
     }
 
@@ -28,6 +46,14 @@ impl AuthType {
 
     pub fn supported(&self) -> bool {
         matches!(self, Self::Native | Self::Clear)
+    }
+
+    pub fn encrypt(&self, password: &[u8], context: &Context) -> Result<Vec<u8>, AuthTypeError> {
+        match self {
+            Self::Native => Ok(mysql_native_password(password, context.seed()).to_vec()),
+            Self::Clear => Ok(password.to_vec()),
+            _ => unimplemented!(),
+        }
     }
 }
 

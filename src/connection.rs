@@ -1,6 +1,7 @@
-use futures::{SinkExt, StreamExt};
+use futures::SinkExt;
 use tokio::net::{TcpStream, UnixStream};
 use tokio_native_tls::native_tls;
+use tokio_stream::StreamExt;
 use tokio_util::{codec::Framed, either::Either};
 
 use crate::{
@@ -8,7 +9,8 @@ use crate::{
     context::Context,
     protocol::{
         client::{HandshakeResponse, SslPacket},
-        server::InitialHanshakePacket,
+        plugin::{AuthType, AuthTypeError},
+        server::{InitialHandshakeError, InitialHanshakePacket},
         Capability,
     },
     ssl::{StreamTransporter, TlsMode, TlsOptions},
@@ -27,7 +29,8 @@ pub struct Connection {
 pub struct ConnectionOption<'a> {
     pub host: &'a str,
     pub username: &'a str,
-    pub password: &'a str,
+    pub password: &'a [u8],
+    pub database: Option<&'a str>,
     pub stream_type: StreamType,
     pub tls: TlsOptions<'a>,
 }
@@ -37,9 +40,10 @@ impl<'a> Default for ConnectionOption<'a> {
         Self {
             host: "127.0.0.1:3306",
             username: "",
-            password: "",
+            password: &[],
             stream_type: StreamType::default(),
             tls: TlsOptions::default(),
+            database: None,
         }
     }
 }
@@ -50,10 +54,19 @@ pub enum ConnectionError {
     Io(#[from] std::io::Error),
 
     #[error("Failed to perform initial handshake")]
-    InitialHandshake(#[from] crate::protocol::server::InitialHandshakeError),
+    InitialHandshake(#[from] InitialHandshakeError),
 
     #[error("The server does not support tls")]
     TlsCapability,
+
+    #[error("The server requires tls for authentication")]
+    PluginNeedsTls,
+
+    #[error("Unsupported auth plugin {0}")]
+    UnsupportedAuthPlugin(AuthType),
+
+    #[error(transparent)]
+    AuthPluginError(#[from] AuthTypeError),
 
     #[error(transparent)]
     Tls(#[from] native_tls::Error),
@@ -87,9 +100,8 @@ impl Connection {
 
         let parts = Stream::into_tls_parts(&options.tls)?;
 
-        let stream = if let Some(parts) = parts {
+        let mut stream = if let Some(parts) = parts {
             context.set_client_capability(Capability::SSL);
-            // add the concept of oneshot packet that checks for the response if i have one
             let mut packet_frame = SslPacket::new().encode_packet(&context)?;
             packet_frame.set_seq(next_seq);
             framed.send(packet_frame).await?;
@@ -108,13 +120,35 @@ impl Connection {
             Framed::new(Either::Left(stream), codec)
         };
 
-        let mut response = HandshakeResponse::from(options).encode_packet(&context)?;
+        let auth_type = context.auth_type();
+
+        if !auth_type.supported() {
+            return Err(ConnectionError::UnsupportedAuthPlugin(auth_type));
+        }
+
+        if auth_type.needs_ssl() && !context.has_client_capability(Capability::SSL) {
+            return Err(ConnectionError::TlsCapability);
+        }
+
+        let password = auth_type.encrypt(options.password, &context)?;
+
+        let handshake = HandshakeResponse {
+            username: options.username,
+            password: &password,
+            database: options.database,
+        };
+
+        let mut response = handshake.encode_packet(&context)?;
         response.set_seq(next_seq);
         next_seq = next_seq.wrapping_add(1);
+        stream.send(response).await?;
 
-        let values = stream.read_buffer().len();
+        let packet = stream
+            .next()
+            .await
+            .ok_or(std::io::Error::from(std::io::ErrorKind::ConnectionAborted))??;
 
-        println!("values: {:?}", values);
+        println!("{:?}", packet);
 
         Ok(Self {
             stream,
@@ -160,7 +194,7 @@ mod tests {
     #[tokio::test]
     async fn test_send_sync() {
         let options = ConnectionOption::default();
-        let connection = Connection::connect(&options).await.unwrap();
+        let _connection = Connection::connect(&options).await.unwrap();
         assert_send_sync::<Connection>();
     }
 }

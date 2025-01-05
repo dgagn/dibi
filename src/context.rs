@@ -28,9 +28,9 @@ impl Context {
             | Capability::MULTI_RESULTS
             | Capability::PS_MULTI_RESULTS
             | Capability::PLUGIN_AUTH
-            | Capability::CONNECT_ATTRS
             | Capability::PLUGIN_AUTH_LENENC_CLIENT_DATA
             | Capability::CLIENT_SESSION_TRACK
+        // | Capability::CONNECT_ATTRS : todo
     }
 }
 
@@ -71,8 +71,8 @@ impl Context {
     }
 
     #[inline]
-    pub fn auth_type(&self) -> Option<AuthType> {
-        self.auth_type
+    pub fn auth_type(&self) -> AuthType {
+        self.auth_type.unwrap_or_default()
     }
 
     #[inline]

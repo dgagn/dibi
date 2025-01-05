@@ -18,7 +18,8 @@ async fn main() {
         stream_type: StreamType::Tcp,
         tls: tls_opts,
         username: "ovior",
-        password: &password,
+        password: password.as_bytes(),
+        database: None,
     };
     let connection = Connection::connect(&options).await.unwrap();
 
