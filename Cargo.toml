@@ -4,6 +4,12 @@ version = "0.1.2"
 edition = "2021"
 license = "MIT"
 description = "A lightweight and universal database driver"
+homepage = "https://github.com/dgagn/dibi"
+repository = "https://github.com/dgagn/dibi"
+readme = "README.md"
+
+[package.metadata.docs.rs]
+all-features = true
 
 [dependencies]
 bitflags = "2.6.0"
