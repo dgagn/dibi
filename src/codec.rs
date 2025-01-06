@@ -48,7 +48,7 @@ impl PacketCodec {
 pub const MAX_BUFFER_SIZE: usize = 0xFFFFFF;
 
 /// The default maximum packet size is 1GB
-pub const MAX_PACKET_SIZE: usize = 1024 * 1024 * 1024;
+pub const MAX_PACKET_SIZE: usize = 3 * 1024 * 1024 * 1024;
 
 /// The header size is 4 bytes (3 bytes for the length and 1 byte for the sequence number)
 pub const HEADER_SIZE: usize = 4;

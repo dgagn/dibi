@@ -29,7 +29,8 @@ impl<'a> EncodePacket<PacketFrame> for HandshakeResponsePacket<'a> {
         } else {
             bytes.put_u32_le(0);
         }
-        bytes.put_str_null_terminated(self.username);
+
+        bytes.put_str_null_terminated(self.username.as_bytes());
 
         if context.has_server_capability(Capability::PLUGIN_AUTH_LENENC_CLIENT_DATA) {
             bytes.put_len_encoded_str(self.password);
@@ -41,11 +42,9 @@ impl<'a> EncodePacket<PacketFrame> for HandshakeResponsePacket<'a> {
             bytes.put_str_null_terminated(self.password);
         }
 
-        if let Some(database) = self.database {
-            if context.has_server_capability(Capability::CONNECT_WITH_DB) {
+        if context.has_server_capability(Capability::CONNECT_WITH_DB) {
+            if let Some(database) = self.database {
                 bytes.put_str_null_terminated(database);
-            } else {
-                bytes.put_u8(0);
             }
         }
 

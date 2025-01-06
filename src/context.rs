@@ -53,6 +53,7 @@ impl Context {
     }
 
     pub fn for_packet(&mut self, initial_handshake_packet: InitialHanshakePacket) {
+        self.client_capabilities = Self::default_client_capabilities();
         self.server_capabilities = initial_handshake_packet.server_capabilities;
         self.is_maria_db = initial_handshake_packet.is_maria_db;
         self.client_collation = initial_handshake_packet.default_collation;

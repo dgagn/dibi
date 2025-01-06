@@ -79,8 +79,6 @@ impl Connection {
         #[cfg(feature = "tracing")]
         tracing::debug!("Received handshake packet");
 
-        println!("{:?}", handshake);
-
         mystream.handshake_packet(handshake);
 
         if matches!(
@@ -94,7 +92,6 @@ impl Connection {
         let parts = into_tls_parts(&options.tls).await?;
 
         let stream = if parts.is_some() {
-            println!("ssl");
             #[cfg(feature = "tracing")]
             tracing::debug!("Sending TLS packet to server for upgrade");
             let context = mystream.context_mut();

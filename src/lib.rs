@@ -34,7 +34,7 @@ pub trait BufMutExt {
 }
 
 impl<T: BufMut> BufMutExt for T {
-    /// [lenenc](https://dev.mysql.com/doc/dev/mysql-server/9.0.1/page_protocol_basic_dt_integers.html#sect_protocol_basic_dt_int_fixed)
+    /// [lenec](https://dev.mysql.com/doc/dev/mysql-server/9.0.1/page_protocol_basic_dt_integers.html#sect_protocol_basic_dt_int_fixed)
     fn put_len_encoded_int(&mut self, value: u64) -> u8 {
         if value < 251 {
             self.put_u8(value as u8);

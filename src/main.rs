@@ -20,15 +20,9 @@ async fn main() {
         host: "127.0.0.1:3306",
         stream_type: StreamType::Tcp,
         tls: tls_opts,
-        username: "oviora",
+        username: "ovior",
         password: password.as_bytes(),
         database: None,
     };
-    let mut connection = Connection::connect(&options).await.unwrap();
-
-    connection.ping().await.unwrap();
-
-    connection.ping().await.unwrap();
-
-    println!("Connected to MySQL server");
+    let connection = Connection::connect(&options).await.unwrap();
 }
